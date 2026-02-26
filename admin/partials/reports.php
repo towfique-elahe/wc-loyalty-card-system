@@ -40,13 +40,42 @@ $total_loyalty_cards_issued = $wpdb->get_var($wpdb->prepare(
     $date_to
 ));
 
-// Get points by tier
-$points_by_tier = $wpdb->get_results(
-    "SELECT t.tier_name, COUNT(*) as user_count, SUM(lp.points_balance) as total_points
-     FROM {$wpdb->prefix}loyalty_points lp
-     LEFT JOIN {$wpdb->prefix}loyalty_tiers t ON lp.tier_id = t.id
-     GROUP BY lp.tier_id"
+// Get points by tier.
+// Tiers are stored as WP options and calculated from lifetime_points — there is no
+// tier_id column in loyalty_points, so we compute the distribution in PHP.
+$all_user_points = $wpdb->get_results(
+    "SELECT user_id, points_balance, lifetime_points FROM {$wpdb->prefix}loyalty_points"
 );
+
+$tiers_config      = Tier_Management::get_tiers();
+$tier_distribution = array();
+
+// Seed every tier with zero so all tiers always appear in the table.
+foreach ($tiers_config as $t) {
+    $tier_distribution[$t['name']] = (object) array(
+        'tier_name'    => $t['name'],
+        'user_count'   => 0,
+        'total_points' => 0,
+    );
+}
+
+foreach ($all_user_points as $row) {
+    $user_tier = Tier_Management::get_user_tier($row->user_id);
+    $name      = $user_tier['name'];
+
+    if (!isset($tier_distribution[$name])) {
+        $tier_distribution[$name] = (object) array(
+            'tier_name'    => $name,
+            'user_count'   => 0,
+            'total_points' => 0,
+        );
+    }
+
+    $tier_distribution[$name]->user_count++;
+    $tier_distribution[$name]->total_points += (int) $row->points_balance;
+}
+
+$points_by_tier = array_values($tier_distribution);
 
 // Get daily points activity
 $daily_activity = $wpdb->get_results($wpdb->prepare(

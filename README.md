@@ -223,6 +223,13 @@ GPL v2 or later — see [https://www.gnu.org/licenses/gpl-2.0.html](https://www.
 
 ## Changelog
 
+### 1.1.1 — 2026-02-26
+
+#### Fixed
+- **Reports — Points Distribution by Tier showing "Unassigned" for all rows.** The original query used `LEFT JOIN loyalty_tiers ON loyalty_points.tier_id = loyalty_tiers.id`, but the `loyalty_points` table has no `tier_id` column — tiers are calculated dynamically from `lifetime_points` using `Tier_Management`. The JOIN always returned NULL, so every user fell into the "Unassigned" fallback. Replaced the SQL with a PHP loop that calls `Tier_Management::get_user_tier()` per user and groups results by tier name. All configured tiers are now pre-seeded with zero counts so they always appear in the table even if no users are in that tier yet.
+
+---
+
 ### 1.1.0 — 2026-02-26
 
 #### Changed

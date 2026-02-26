@@ -3,7 +3,7 @@
  * Plugin Name: WooCommerce Loyalty Card System
  * Plugin URI: https://towfiqueelahe.com/
  * Description: Complete loyalty point system with gift cards, privilege cards, and tiered memberships for WooCommerce
- * Version: 1.1.0
+ * Version: 1.1.1
  * Author: Towfique Elahe
  * Author URI: https://towfiqueelahe.com/
  * License: GPL v2 or later
@@ -40,7 +40,7 @@ function wcls_activation_check() {
 }
 
 // Define plugin constants
-define('WCLS_VERSION', '1.1.0');
+define('WCLS_VERSION', '1.1.1');
 define('WCLS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WCLS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('WCLS_PLUGIN_BASENAME', plugin_basename(__FILE__));
