@@ -88,6 +88,45 @@ class Tier_Management {
     }
     
     /**
+     * Get the user's tier progress toward the next tier.
+     * Returns null if the user is already at the top tier.
+     */
+    public static function get_tier_progress($user_id) {
+        $points = Loyalty_Points::get_user_lifetime_points($user_id);
+        $tiers  = self::get_tiers();
+
+        $current_tier_data = null;
+        $current_index     = -1;
+
+        foreach ($tiers as $index => $tier) {
+            if ($points >= $tier['min_points']) {
+                if (is_null($tier['max_points']) || $points <= $tier['max_points']) {
+                    $current_tier_data = $tier;
+                    $current_index     = $index;
+                }
+            }
+        }
+
+        // No next tier — already at the top
+        if (!$current_tier_data || !isset($tiers[$current_index + 1])) {
+            return null;
+        }
+
+        $next_tier       = $tiers[$current_index + 1];
+        $points_in_tier  = $points - $current_tier_data['min_points'];
+        $points_for_tier = $next_tier['min_points'] - $current_tier_data['min_points'];
+        $progress        = $points_for_tier > 0 ? round(($points_in_tier / $points_for_tier) * 100) : 100;
+
+        return array(
+            'current_tier'  => $current_tier_data['name'],
+            'next_tier'     => $next_tier['name'],
+            'progress'      => min(100, $progress),
+            'points_earned' => $points_in_tier,
+            'points_needed' => $points_for_tier,
+        );
+    }
+
+    /**
      * Get user's card-based benefits (Privilege, Investor, Platinum cards)
      */
     public static function get_user_cards($user_id) {

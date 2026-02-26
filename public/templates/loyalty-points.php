@@ -149,7 +149,8 @@ $progress = Tier_Management::get_tier_progress($user_id);
         <ul>
             <li><?php _e('Minimum 100 points required', 'wc-loyalty-system'); ?></li>
             <li><?php _e('1 point = 1 TK discount', 'wc-loyalty-system'); ?></li>
-            <li><?php _e('Select "Pay with Points" at checkout', 'wc-loyalty-system'); ?></li>
+            <li><?php _e('At checkout, enter how many points to use in the "Loyalty Points" box and click Apply', 'wc-loyalty-system'); ?></li>
+            <li><?php _e('The discount is applied to your order total — pay the remainder with any payment method', 'wc-loyalty-system'); ?></li>
         </ul>
     </div>
 </div>

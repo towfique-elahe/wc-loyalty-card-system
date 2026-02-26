@@ -10,7 +10,7 @@ class Frontend_Display {
         add_shortcode('loyalty_points_balance', array($this, 'points_balance_shortcode'));
         add_shortcode('loyalty_tier_status', array($this, 'tier_status_shortcode'));
         add_shortcode('buy_privilege_card', array($this, 'buy_privilege_card_shortcode'));
-        add_action('woocommerce_before_checkout_form', array($this, 'checkout_points_display'));
+        add_action('woocommerce_review_order_before_payment', array($this, 'checkout_discount_boxes'));
     }
     
     public function add_loyalty_floating_widget() {
@@ -249,26 +249,79 @@ class Frontend_Display {
         }
     }
     
-    public function checkout_points_display() {
-        if (!is_user_logged_in()) return;
-        
-        $user_id = get_current_user_id();
-        $points = Loyalty_Points::get_user_points($user_id);
-        $min_points = get_option('wcls_min_redemption_points', 100);
-        
-        if ($points >= $min_points) {
-            ?>
-<div class="wcls-checkout-points">
-    <h3><?php _e('Use Your Loyalty Points', 'wc-loyalty-system'); ?></h3>
-    <p><?php echo sprintf(
-                    __('You have <strong>%d points</strong> available. Value: %s', 'wc-loyalty-system'),
+    public function checkout_discount_boxes() {
+        if (!is_user_logged_in() || !WC()->session) return;
+
+        $user_id        = get_current_user_id();
+        $points         = Loyalty_Points::get_user_points($user_id);
+        $min_points     = get_option('wcls_min_redemption_points', 100);
+        $applied_points = intval(WC()->session->get('wcls_points_to_use', 0));
+        $applied_gc     = WC()->session->get('wcls_gift_card_applied', null);
+        ?>
+<div class="wcls-checkout-discounts">
+
+    <?php if ($points >= $min_points || $applied_points > 0): ?>
+    <div class="wcls-checkout-section wcls-points-section">
+        <h3 class="wcls-section-title"><?php _e('Loyalty Points', 'wc-loyalty-system'); ?></h3>
+        <?php if ($applied_points > 0): ?>
+            <p class="wcls-applied-notice">
+                <?php echo sprintf(
+                    __('<strong>%d points</strong> applied — discount: <strong>%s</strong>', 'wc-loyalty-system'),
+                    $applied_points,
+                    wc_price(Loyalty_Points::get_points_value($applied_points))
+                ); ?>
+                <button type="button" id="wcls-remove-points" class="wcls-remove-btn"><?php _e('Remove', 'wc-loyalty-system'); ?></button>
+            </p>
+        <?php else: ?>
+            <p class="wcls-available-info">
+                <?php echo sprintf(
+                    __('You have <strong>%d points</strong> available (worth %s)', 'wc-loyalty-system'),
                     $points,
                     wc_price(Loyalty_Points::get_points_value($points))
-                ); ?></p>
-    <p><a href="#points-gateway" class="button"><?php _e('Pay with Points', 'wc-loyalty-system'); ?></a></p>
+                ); ?>
+            </p>
+            <div class="wcls-input-row">
+                <input type="number"
+                       id="wcls_points_to_use"
+                       min="<?php echo esc_attr($min_points); ?>"
+                       max="<?php echo esc_attr($points); ?>"
+                       step="1"
+                       placeholder="<?php echo esc_attr($min_points); ?>" />
+                <button type="button" id="wcls-apply-points" class="button alt"><?php _e('Apply', 'wc-loyalty-system'); ?></button>
+            </div>
+            <p class="wcls-preview-text">
+                <?php _e('Discount preview:', 'wc-loyalty-system'); ?>
+                <span id="wcls-points-preview">—</span>
+            </p>
+            <div id="wcls-points-message" class="wcls-inline-message" style="display:none;"></div>
+        <?php endif; ?>
+    </div>
+    <?php endif; ?>
+
+    <div class="wcls-checkout-section wcls-gift-card-section">
+        <h3 class="wcls-section-title"><?php _e('Gift Card', 'wc-loyalty-system'); ?></h3>
+        <?php if ($applied_gc): ?>
+            <p class="wcls-applied-notice">
+                <?php echo sprintf(
+                    __('Gift card <strong>***%s</strong> applied — discount: <strong>%s</strong>', 'wc-loyalty-system'),
+                    esc_html(substr($applied_gc['number'], -4)),
+                    wc_price($applied_gc['discount'])
+                ); ?>
+                <button type="button" id="wcls-remove-gift-card" class="wcls-remove-btn"><?php _e('Remove', 'wc-loyalty-system'); ?></button>
+            </p>
+        <?php else: ?>
+            <div class="wcls-input-row">
+                <input type="text"
+                       id="wcls_gift_card_number"
+                       placeholder="<?php _e('Enter gift card number', 'wc-loyalty-system'); ?>" />
+                <button type="button" id="wcls-apply-gift-card" class="button alt"><?php _e('Apply', 'wc-loyalty-system'); ?></button>
+            </div>
+            <div id="wcls-gift-card-message" class="wcls-inline-message" style="display:none;"></div>
+        <?php endif; ?>
+    </div>
+
 </div>
 <?php
-        }
     }
 }
 

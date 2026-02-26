@@ -1,40 +1,158 @@
 // public/js/loyalty-system.js
 
 jQuery(document).ready(function ($) {
+
+  // ---------------------------------------------------------------
   // Floating widget toggle
+  // ---------------------------------------------------------------
   $(".wcls-widget-toggle").on("click", function () {
     $(".wcls-widget-content").toggle();
   });
 
-  // Close widget when clicking outside
   $(document).on("click", function (event) {
     if (!$(event.target).closest(".wcls-floating-widget").length) {
       $(".wcls-widget-content").hide();
     }
   });
 
-  // Points calculator on checkout
-  $("#points_to_use").on("input", function () {
-    var points = parseInt($(this).val()) || 0;
-    var maxPoints = parseInt($(this).attr("max")) || 0;
+  // ---------------------------------------------------------------
+  // Checkout discount boxes (points & gift card as optional discounts)
+  // ---------------------------------------------------------------
 
-    if (points > maxPoints) {
-      $(this).val(maxPoints);
-      points = maxPoints;
+  // Live discount preview while typing in the points field
+  $(document).on("input", "#wcls_points_to_use", function () {
+    var pts = parseInt($(this).val()) || 0;
+    var max = parseInt($(this).attr("max")) || 0;
+    if (pts > max) {
+      $(this).val(max);
+      pts = max;
     }
-
-    var value = points; // 1 point = 1 TK
-    $("#points_value_display").text(woocommerce_price(value));
+    if (pts > 0) {
+      $("#wcls-points-preview").text(wcls_ajax.currency_symbol + " " + pts.toFixed(2));
+    } else {
+      $("#wcls-points-preview").text("—");
+    }
   });
 
-  // Gift card balance check
-  $("#check_gift_card").on("click", function () {
+  // Apply loyalty points
+  $(document).on("click", "#wcls-apply-points", function () {
+    var pts = parseInt($("#wcls_points_to_use").val()) || 0;
+    var $btn = $(this);
+    var $msg = $("#wcls-points-message");
+
+    if (pts <= 0) {
+      showMessage($msg, wcls_strings.enter_points, "error");
+      return;
+    }
+
+    $btn.prop("disabled", true).text(wcls_strings.applying);
+
+    $.ajax({
+      url: wcls_ajax.ajax_url,
+      type: "POST",
+      data: {
+        action: "wcls_apply_points",
+        points: pts,
+        nonce: wcls_ajax.nonce,
+      },
+      success: function (response) {
+        if (response.success) {
+          // Reload checkout to re-render the applied state + updated totals
+          location.reload();
+        } else {
+          showMessage($msg, response.data.message, "error");
+          $btn.prop("disabled", false).text(wcls_strings.apply);
+        }
+      },
+      error: function () {
+        showMessage($msg, wcls_strings.error, "error");
+        $btn.prop("disabled", false).text(wcls_strings.apply);
+      },
+    });
+  });
+
+  // Remove loyalty points
+  $(document).on("click", "#wcls-remove-points", function () {
+    $(this).prop("disabled", true);
+    $.ajax({
+      url: wcls_ajax.ajax_url,
+      type: "POST",
+      data: {
+        action: "wcls_remove_points",
+        nonce: wcls_ajax.nonce,
+      },
+      success: function () {
+        location.reload();
+      },
+    });
+  });
+
+  // Apply gift card
+  $(document).on("click", "#wcls-apply-gift-card", function () {
+    var cardNumber = $.trim($("#wcls_gift_card_number").val());
+    var $btn = $(this);
+    var $msg = $("#wcls-gift-card-message");
+
+    if (!cardNumber) {
+      showMessage($msg, wcls_strings.enter_card_number, "error");
+      return;
+    }
+
+    $btn.prop("disabled", true).text(wcls_strings.applying);
+
+    $.ajax({
+      url: wcls_ajax.ajax_url,
+      type: "POST",
+      data: {
+        action: "wcls_apply_gift_card_checkout",
+        card_number: cardNumber,
+        nonce: wcls_ajax.nonce,
+      },
+      success: function (response) {
+        if (response.success) {
+          location.reload();
+        } else {
+          showMessage($msg, response.data.message, "error");
+          $btn.prop("disabled", false).text(wcls_strings.apply);
+        }
+      },
+      error: function () {
+        showMessage($msg, wcls_strings.error, "error");
+        $btn.prop("disabled", false).text(wcls_strings.apply);
+      },
+    });
+  });
+
+  // Remove gift card
+  $(document).on("click", "#wcls-remove-gift-card", function () {
+    $(this).prop("disabled", true);
+    $.ajax({
+      url: wcls_ajax.ajax_url,
+      type: "POST",
+      data: {
+        action: "wcls_remove_gift_card_checkout",
+        nonce: wcls_ajax.nonce,
+      },
+      success: function () {
+        location.reload();
+      },
+    });
+  });
+
+  // ---------------------------------------------------------------
+  // Gift card balance check (standalone, e.g. on My Account page)
+  // ---------------------------------------------------------------
+  $(document).on("click", "#check_gift_card", function () {
     var cardNumber = $("#gift_card_number").val();
+    var $btn = $(this);
+    var $display = $("#gift_card_balance_display");
 
     if (!cardNumber) {
       alert(wcls_strings.enter_card_number);
       return;
     }
+
+    $btn.prop("disabled", true).text(wcls_strings.checking);
 
     $.ajax({
       url: wcls_ajax.ajax_url,
@@ -44,20 +162,15 @@ jQuery(document).ready(function ($) {
         card_number: cardNumber,
         nonce: wcls_ajax.nonce,
       },
-      beforeSend: function () {
-        $("#check_gift_card")
-          .prop("disabled", true)
-          .text(wcls_strings.checking);
-      },
       success: function (response) {
         if (response.success) {
-          $("#gift_card_balance_display")
+          $display
             .removeClass("error")
             .addClass("success")
             .html("<p>" + response.data.message + "</p>")
             .show();
         } else {
-          $("#gift_card_balance_display")
+          $display
             .removeClass("success")
             .addClass("error")
             .html("<p>" + response.data.message + "</p>")
@@ -65,83 +178,55 @@ jQuery(document).ready(function ($) {
         }
       },
       complete: function () {
-        $("#check_gift_card")
-          .prop("disabled", false)
-          .text(wcls_strings.check_balance);
+        $btn.prop("disabled", false).text(wcls_strings.check_balance);
       },
     });
   });
 
-  // Helper function for WooCommerce price formatting
-  function woocommerce_price(amount) {
-    var formatted = amount.toFixed(2);
-
-    // Check if WooCommerce price format exists
-    if (typeof wc_price !== "undefined") {
-      return wc_price(amount);
-    }
-
-    // Fallback formatting
-    return wcls_strings.currency_symbol + " " + formatted;
-  }
-
-  // Handle privilege card purchase
-  $(".wcls-buy-card form").on("submit", function (e) {
-    // Allow form submission
+  // ---------------------------------------------------------------
+  // Privilege card purchase form
+  // ---------------------------------------------------------------
+  $(".wcls-buy-card form").on("submit", function () {
     return true;
   });
 
-  // Tooltips for points info
-  $(".wcls-points-info-icon").hover(
-    function () {
-      $(this).next(".wcls-tooltip").fadeIn(200);
-    },
-    function () {
-      $(this).next(".wcls-tooltip").fadeOut(200);
-    },
-  );
-
+  // ---------------------------------------------------------------
   // Copy gift card number to clipboard
+  // ---------------------------------------------------------------
   $(".wcls-copy-card").on("click", function () {
     var cardNumber = $(this).data("card");
-
-    // Create temporary input
     var $temp = $("<input>");
     $("body").append($temp);
     $temp.val(cardNumber).select();
-
     try {
       document.execCommand("copy");
       $(this).next(".wcls-copy-success").fadeIn().delay(2000).fadeOut();
     } catch (err) {
       console.error("Copy failed", err);
     }
-
     $temp.remove();
   });
 
-  // Points redemption confirmation
-  $("#place_order").on("click", function (e) {
-    var pointsToUse = $("#points_to_use").val();
-
-    if (pointsToUse && parseInt(pointsToUse) > 0) {
-      if (
-        !confirm(
-          wcls_strings.confirm_redemption.replace("{points}", pointsToUse),
-        )
-      ) {
-        e.preventDefault();
-      }
+  // ---------------------------------------------------------------
+  // Tooltips
+  // ---------------------------------------------------------------
+  $(".wcls-points-info-icon").hover(
+    function () {
+      $(this).next(".wcls-tooltip").fadeIn(200);
+    },
+    function () {
+      $(this).next(".wcls-tooltip").fadeOut(200);
     }
-  });
+  );
 
-  // Initialize any counters
+  // ---------------------------------------------------------------
+  // Counter animation
+  // ---------------------------------------------------------------
   $(".wcls-counter").each(function () {
     var $this = $(this);
     var target = parseInt($this.data("target")) || 0;
     var current = 0;
     var increment = target > 100 ? Math.ceil(target / 100) : 1;
-
     var timer = setInterval(function () {
       current += increment;
       if (current >= target) {
@@ -152,28 +237,26 @@ jQuery(document).ready(function ($) {
     }, 20);
   });
 
-  // Tab switching in my account
+  // ---------------------------------------------------------------
+  // Tab switching in My Account
+  // ---------------------------------------------------------------
   $(".wcls-tabs .tab-link").on("click", function (e) {
     e.preventDefault();
-
     var tabId = $(this).data("tab");
-
     $(".wcls-tabs .tab-link").removeClass("active");
     $(this).addClass("active");
-
     $(".wcls-tab-content").removeClass("active");
     $("#" + tabId).addClass("active");
   });
 
-  // Handle AJAX points update in real-time
+  // ---------------------------------------------------------------
+  // Live points balance update on My Account points page
+  // ---------------------------------------------------------------
   function updatePointsBalance() {
     $.ajax({
       url: wcls_ajax.ajax_url,
       type: "POST",
-      data: {
-        action: "get_points_balance",
-        nonce: wcls_ajax.nonce,
-      },
+      data: { action: "get_points_balance", nonce: wcls_ajax.nonce },
       success: function (response) {
         if (response.success) {
           $(".wcls-points-balance-display").text(response.data.points);
@@ -182,17 +265,32 @@ jQuery(document).ready(function ($) {
     });
   }
 
-  // Update points every 30 seconds on points page
   if ($(".wcls-points-page").length) {
     setInterval(updatePointsBalance, 30000);
   }
+
+  // ---------------------------------------------------------------
+  // Helper: show inline message
+  // ---------------------------------------------------------------
+  function showMessage($el, message, type) {
+    $el
+      .removeClass("wcls-msg-success wcls-msg-error")
+      .addClass(type === "error" ? "wcls-msg-error" : "wcls-msg-success")
+      .html(message)
+      .show();
+  }
 });
 
-// Localization strings
+// ---------------------------------------------------------------
+// Localisation strings (referenced before document.ready in some cases)
+// ---------------------------------------------------------------
 var wcls_strings = {
   enter_card_number: "Please enter a gift card number",
+  enter_points: "Please enter the number of points to use",
   checking: "Checking...",
   check_balance: "Check Balance",
-  confirm_redemption: "Are you sure you want to redeem {points} points?",
-  currency_symbol: wcls_ajax.currency_symbol || "TK",
+  applying: "Applying...",
+  apply: "Apply",
+  error: "Something went wrong. Please try again.",
+  currency_symbol: (typeof wcls_ajax !== "undefined" && wcls_ajax.currency_symbol) ? wcls_ajax.currency_symbol : "TK",
 };

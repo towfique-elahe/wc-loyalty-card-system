@@ -3,6 +3,111 @@
 
 defined('ABSPATH') or die('Direct access not allowed');
 
+// ---------------------------------------------------------------
+// Checkout discount actions (points & gift card as coupons)
+// ---------------------------------------------------------------
+
+// Apply loyalty points at checkout
+add_action('wp_ajax_wcls_apply_points', 'wcls_apply_points_checkout');
+
+function wcls_apply_points_checkout() {
+    check_ajax_referer('wcls_nonce', 'nonce');
+
+    if (!is_user_logged_in()) {
+        wp_send_json_error(array('message' => __('Please log in to use loyalty points.', 'wc-loyalty-system')));
+    }
+
+    $user_id     = get_current_user_id();
+    $points      = intval($_POST['points']);
+    $min_points  = get_option('wcls_min_redemption_points', 100);
+    $available   = Loyalty_Points::get_user_points($user_id);
+
+    if ($points < $min_points) {
+        wp_send_json_error(array('message' => sprintf(
+            __('Minimum %d points required.', 'wc-loyalty-system'), $min_points
+        )));
+    }
+
+    if ($points > $available) {
+        wp_send_json_error(array('message' => __('You do not have enough points.', 'wc-loyalty-system')));
+    }
+
+    // Cap discount to remaining cart total
+    $cart_total = WC()->cart->get_subtotal() + WC()->cart->get_shipping_total();
+    $discount   = min(Loyalty_Points::get_points_value($points), $cart_total);
+    $points     = (int) $discount; // 1 pt = 1 TK, so points == discount after cap
+
+    WC()->session->set('wcls_points_to_use', $points);
+
+    wp_send_json_success(array(
+        'message' => sprintf(
+            __('<strong>%d points</strong> applied — discount: <strong>%s</strong>', 'wc-loyalty-system'),
+            $points,
+            wc_price($discount)
+        ),
+        'points'   => $points,
+        'discount' => $discount,
+    ));
+}
+
+// Remove loyalty points from checkout
+add_action('wp_ajax_wcls_remove_points', 'wcls_remove_points_checkout');
+
+function wcls_remove_points_checkout() {
+    check_ajax_referer('wcls_nonce', 'nonce');
+    WC()->session->set('wcls_points_to_use', 0);
+    wp_send_json_success(array('message' => __('Loyalty points discount removed.', 'wc-loyalty-system')));
+}
+
+// Apply gift card at checkout
+add_action('wp_ajax_wcls_apply_gift_card_checkout', 'wcls_apply_gift_card_checkout');
+
+function wcls_apply_gift_card_checkout() {
+    check_ajax_referer('wcls_nonce', 'nonce');
+
+    $card_number = sanitize_text_field($_POST['card_number']);
+    $card        = Gift_Cards::validate_gift_card($card_number);
+
+    if (is_wp_error($card)) {
+        wp_send_json_error(array('message' => $card->get_error_message()));
+    }
+
+    // Calculate how much the gift card can cover after any points discount
+    $points_discount    = Loyalty_Points::get_points_value(intval(WC()->session->get('wcls_points_to_use', 0)));
+    $cart_total         = WC()->cart->get_subtotal() + WC()->cart->get_shipping_total();
+    $remaining_total    = max(0, $cart_total - $points_discount);
+    $discount           = min($card->balance, $remaining_total);
+
+    WC()->session->set('wcls_gift_card_applied', array(
+        'number'   => $card_number,
+        'balance'  => $card->balance,
+        'discount' => $discount,
+    ));
+
+    wp_send_json_success(array(
+        'message' => sprintf(
+            __('Gift card <strong>***%s</strong> applied — discount: <strong>%s</strong>', 'wc-loyalty-system'),
+            esc_html(substr($card_number, -4)),
+            wc_price($discount)
+        ),
+        'discount'    => $discount,
+        'card_number' => $card_number,
+    ));
+}
+
+// Remove gift card from checkout
+add_action('wp_ajax_wcls_remove_gift_card_checkout', 'wcls_remove_gift_card_checkout');
+
+function wcls_remove_gift_card_checkout() {
+    check_ajax_referer('wcls_nonce', 'nonce');
+    WC()->session->set('wcls_gift_card_applied', null);
+    wp_send_json_success(array('message' => __('Gift card discount removed.', 'wc-loyalty-system')));
+}
+
+// ---------------------------------------------------------------
+// Check gift card balance (existing)
+// ---------------------------------------------------------------
+
 // Check gift card balance
 add_action('wp_ajax_check_gift_card_balance', 'wcls_check_gift_card_balance');
 add_action('wp_ajax_nopriv_check_gift_card_balance', 'wcls_check_gift_card_balance');

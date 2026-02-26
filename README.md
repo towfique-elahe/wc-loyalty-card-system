@@ -24,7 +24,7 @@ A complete loyalty program plugin for WooCommerce — featuring points earning, 
 - Configurable minimum points required before redemption
 - Configurable point expiry in days (set to 0 for no expiry)
 - Full points history tracked per user
-- Points redeemable as a discount via a dedicated WooCommerce payment gateway
+- Points applied as an **optional discount at checkout** — customers enter how many points to use, and the discount is deducted from the order total before payment
 
 ### Tiered Membership
 - Users are automatically placed into tiers based on their **lifetime points**
@@ -60,13 +60,9 @@ Three distinct physical-style card types, each with a unique card number, validi
 - Default card denominations: 500, 1,000, 2,000, and 5,000 TK
 - Unique auto-generated card numbers
 - Track initial amount, current balance, status, and optional expiry date
-- Redeemable at checkout via a dedicated WooCommerce gift card payment gateway
+- Applied as an **optional discount at checkout** — customers enter their gift card code and the balance is deducted from the order total
 - Admin can delete cards from the admin panel
 
-### WooCommerce Payment Gateways
-Two custom gateways added to WooCommerce checkout:
-- **Points Redemption Gateway** — lets customers spend their points balance
-- **Gift Card Gateway** — lets customers redeem a gift card by code
 
 ### My Account Integration
 Three custom endpoints added to the WooCommerce My Account area:
@@ -222,3 +218,41 @@ wc-loyalty-card-system/
 ## License
 
 GPL v2 or later — see [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
+
+---
+
+## Changelog
+
+### 1.1.0 — 2026-02-26
+
+#### Changed
+- **Loyalty Points and Gift Cards are no longer WooCommerce payment gateways.** They were incorrectly implemented as WC_Payment_Gateway subclasses, causing them to appear as selectable payment methods alongside credit card and cash on delivery. This made it impossible to use points/gift cards together with a real payment method.
+- Both are now **optional checkout discount boxes** shown above the payment method section. Customers apply points or a gift card as a discount, then pay the remainder with any standard payment method.
+- Discounts use woocommerce_cart_calculate_fees (negative fee entries) — they appear as a dedicated discount line in the order summary.
+- Redemptions are stored in WC session and finalized (points deducted, gift card balance updated) on order creation via woocommerce_checkout_order_created.
+
+#### Added
+- Tier_Management::get_tier_progress() — was called in the My Account Loyalty Points template but never implemented, causing a PHP fatal error.
+- My Account template public/templates/loyalty-cards.php — was missing, causing 404 on /my-account/loyalty-cards/.
+- My Account template public/templates/gift-cards.php — was missing, causing 404 on /my-account/gift-cards/.
+- Auto-flush of WordPress rewrite rules once per plugin version (wcls_rewrite_version option) — fixes 404 errors on My Account endpoints for existing installs.
+- Downloads tab hidden from My Account navigation.
+- Four new AJAX actions: wcls_apply_points, wcls_remove_points, wcls_apply_gift_card_checkout, wcls_remove_gift_card_checkout.
+- Checkout discount box CSS in public/css/loyalty-system.css.
+
+#### Removed
+- includes/gateways/class-points-gateway.php — Points redemption payment gateway (replaced by discount box).
+- includes/gateways/class-gift-card-gateway.php — Gift card payment gateway (replaced by discount box).
+
+---
+
+### 1.0.0 — Initial Release
+
+- Loyalty points earning on completed orders (dual rate: 1 pt per 100 TK + 5 pts per 450 TK)
+- Points redemption at checkout
+- Four-tier membership system (Bronze, Silver, Gold, Platinum) with auto-applied discounts
+- Three loyalty card types: Privilege, Investor, Platinum
+- Gift card creation, validation, and redemption
+- My Account integration (Loyalty Points endpoint)
+- Admin dashboard, settings, gift cards, loyalty cards, tiers, and reports pages
+- WooCommerce HPOS compatibility

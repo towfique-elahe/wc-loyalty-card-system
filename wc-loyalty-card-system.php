@@ -3,7 +3,7 @@
  * Plugin Name: WooCommerce Loyalty Card System
  * Plugin URI: https://towfiqueelahe.com/
  * Description: Complete loyalty point system with gift cards, privilege cards, and tiered memberships for WooCommerce
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Towfique Elahe
  * Author URI: https://towfiqueelahe.com/
  * License: GPL v2 or later
@@ -40,7 +40,7 @@ function wcls_activation_check() {
 }
 
 // Define plugin constants
-define('WCLS_VERSION', '1.0.0');
+define('WCLS_VERSION', '1.1.0');
 define('WCLS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WCLS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('WCLS_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -98,10 +98,6 @@ class WC_Loyalty_Card_System {
         require_once WCLS_PLUGIN_DIR . 'includes/class-tier-management.php';
         require_once WCLS_PLUGIN_DIR . 'includes/class-admin-settings.php';
         require_once WCLS_PLUGIN_DIR . 'includes/class-frontend-display.php';
-        
-        // Payment gateways
-        require_once WCLS_PLUGIN_DIR . 'includes/gateways/class-points-gateway.php';
-        require_once WCLS_PLUGIN_DIR . 'includes/gateways/class-gift-card-gateway.php';
         
         // Admin
         if (is_admin()) {
@@ -165,7 +161,8 @@ class WC_Loyalty_Card_System {
         // WooCommerce hooks
         add_action('woocommerce_order_status_completed', array($this, 'process_order_points'), 10, 1);
         add_action('woocommerce_order_status_completed', array($this, 'check_free_privilege_card'), 20, 1);
-        add_filter('woocommerce_payment_gateways', array($this, 'add_payment_gateways'));
+        add_action('woocommerce_cart_calculate_fees', array($this, 'apply_checkout_discounts'));
+        add_action('woocommerce_checkout_order_created', array($this, 'process_checkout_discounts'));
         
         // My Account page
         add_action('woocommerce_account_dashboard', array($this, 'add_loyalty_dashboard_widget'));
@@ -184,9 +181,16 @@ class WC_Loyalty_Card_System {
 
     public function init() {
         load_plugin_textdomain('wc-loyalty-system', false, dirname(plugin_basename(__FILE__)) . '/languages');
-        
+
         // Check database tables
         $this->check_database_tables();
+
+        // Flush rewrite rules once whenever endpoints have never been registered
+        // (or after a plugin update that bumps WCLS_VERSION).
+        if (get_option('wcls_rewrite_version') !== WCLS_VERSION) {
+            flush_rewrite_rules();
+            update_option('wcls_rewrite_version', WCLS_VERSION);
+        }
     }
     
     public function activate() {
@@ -290,10 +294,85 @@ class WC_Loyalty_Card_System {
         }
     }
     
-    public function add_payment_gateways($gateways) {
-        $gateways[] = 'WC_Points_Gateway';
-        $gateways[] = 'WC_Gift_Card_Gateway';
-        return $gateways;
+    /**
+     * Apply loyalty points and gift card as cart fee discounts during checkout calculation.
+     */
+    public function apply_checkout_discounts() {
+        if (!WC()->session) return;
+
+        // Apply loyalty points discount
+        $points_to_use = intval(WC()->session->get('wcls_points_to_use', 0));
+        if ($points_to_use > 0) {
+            $discount = Loyalty_Points::get_points_value($points_to_use);
+            $cart_subtotal = WC()->cart->get_subtotal() + WC()->cart->get_shipping_total();
+            $discount = min($discount, $cart_subtotal);
+            if ($discount > 0) {
+                WC()->cart->add_fee(
+                    sprintf(__('Loyalty Points (%d pts)', 'wc-loyalty-system'), $points_to_use),
+                    -$discount,
+                    false
+                );
+            }
+        }
+
+        // Apply gift card discount
+        $gift_card_data = WC()->session->get('wcls_gift_card_applied', null);
+        if ($gift_card_data) {
+            $discount = floatval($gift_card_data['discount']);
+            if ($discount > 0) {
+                WC()->cart->add_fee(
+                    sprintf(__('Gift Card (***%s)', 'wc-loyalty-system'), substr($gift_card_data['number'], -4)),
+                    -$discount,
+                    false
+                );
+            }
+        }
+    }
+
+    /**
+     * When the order is created, finalize redemptions and clear session data.
+     */
+    public function process_checkout_discounts($order) {
+        if (!WC()->session) return;
+        $user_id = $order->get_user_id();
+
+        // Finalize points redemption
+        $points_to_use = intval(WC()->session->get('wcls_points_to_use', 0));
+        if ($points_to_use > 0 && $user_id) {
+            $result = Loyalty_Points::redeem_points($user_id, $points_to_use, $order->get_id());
+            if (!is_wp_error($result)) {
+                $order->update_meta_data('_wcls_points_redeemed', $points_to_use);
+                $order->update_meta_data('_wcls_points_discount', $result);
+                $order->add_order_note(sprintf(
+                    __('Customer redeemed %d loyalty points for a discount of %s', 'wc-loyalty-system'),
+                    $points_to_use,
+                    wc_price($result)
+                ));
+                $order->save();
+            }
+            WC()->session->set('wcls_points_to_use', 0);
+        }
+
+        // Finalize gift card redemption
+        $gift_card_data = WC()->session->get('wcls_gift_card_applied', null);
+        if ($gift_card_data) {
+            $result = Gift_Cards::redeem_gift_card(
+                $gift_card_data['number'],
+                floatval($gift_card_data['discount']),
+                $order->get_id()
+            );
+            if (!is_wp_error($result)) {
+                $order->update_meta_data('_wcls_gift_card_used', $gift_card_data['number']);
+                $order->update_meta_data('_wcls_gift_card_discount', $gift_card_data['discount']);
+                $order->add_order_note(sprintf(
+                    __('Gift card ***%s applied. Discount: %s', 'wc-loyalty-system'),
+                    substr($gift_card_data['number'], -4),
+                    wc_price($gift_card_data['discount'])
+                ));
+                $order->save();
+            }
+            WC()->session->set('wcls_gift_card_applied', null);
+        }
     }
     
     public function add_loyalty_dashboard_widget() {
@@ -316,12 +395,15 @@ class WC_Loyalty_Card_System {
     }
     
     public function add_loyalty_menu_items($menu_items) {
-        $menu_items = array_slice($menu_items, 0, 1, true) 
+        // Hide the Downloads tab
+        unset($menu_items['downloads']);
+
+        $menu_items = array_slice($menu_items, 0, 1, true)
             + array('loyalty-points' => __('Loyalty Points', 'wc-loyalty-system'))
             + array('loyalty-cards' => __('My Cards', 'wc-loyalty-system'))
             + array('gift-cards' => __('Gift Cards', 'wc-loyalty-system'))
             + array_slice($menu_items, 1, null, true);
-        
+
         return $menu_items;
     }
     
