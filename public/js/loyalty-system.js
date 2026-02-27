@@ -6,12 +6,22 @@ jQuery(document).ready(function ($) {
   // Floating widget toggle
   // ---------------------------------------------------------------
   $(".wcls-widget-toggle").on("click", function () {
-    $(".wcls-widget-content").toggle();
+    var $content = $(".wcls-widget-content");
+    if ($content.is(":visible")) {
+      $content.hide().removeClass("wcls-widget-open");
+    } else {
+      $content.show().addClass("wcls-widget-open");
+    }
+  });
+
+  $(document).on("click", ".wcls-widget-close", function (e) {
+    e.stopPropagation();
+    $(".wcls-widget-content").hide().removeClass("wcls-widget-open");
   });
 
   $(document).on("click", function (event) {
     if (!$(event.target).closest(".wcls-floating-widget").length) {
-      $(".wcls-widget-content").hide();
+      $(".wcls-widget-content").hide().removeClass("wcls-widget-open");
     }
   });
 

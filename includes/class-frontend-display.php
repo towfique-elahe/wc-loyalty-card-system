@@ -21,27 +21,51 @@ class Frontend_Display {
         $tier = Tier_Management::get_user_tier($user_id);
         ?>
 <div class="wcls-floating-widget">
-    <div class="wcls-widget-toggle">
-        <span class="dashicons dashicons-awards"></span>
+    <div class="wcls-widget-toggle" title="<?php esc_attr_e('Your Loyalty Status', 'wc-loyalty-system'); ?>">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                fill="white" stroke="white" stroke-width="0.5" stroke-linejoin="round" />
+        </svg>
     </div>
     <div class="wcls-widget-content">
-        <h4><?php _e('Your Loyalty Status', 'wc-loyalty-system'); ?></h4>
-        <div class="wcls-points">
-            <strong><?php _e('Points:', 'wc-loyalty-system'); ?></strong>
-            <span><?php echo $points; ?></span>
+        <div class="wcls-widget-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                    fill="#555" stroke="#555" stroke-width="0.5" stroke-linejoin="round" />
+            </svg>
+            <span><?php _e('Loyalty Status', 'wc-loyalty-system'); ?></span>
+            <button class="wcls-widget-close"
+                aria-label="<?php esc_attr_e('Close', 'wc-loyalty-system'); ?>">&times;</button>
         </div>
-        <div class="wcls-tier">
-            <strong><?php _e('Tier:', 'wc-loyalty-system'); ?></strong>
-            <span style="color: <?php echo $tier['color']; ?>"><?php echo $tier['name']; ?></span>
+        <div class="wcls-widget-body">
+            <div class="wcls-stat-row">
+                <span class="wcls-stat-label"><?php _e('Points Balance', 'wc-loyalty-system'); ?></span>
+                <span class="wcls-stat-value wcls-points-val"><?php echo number_format($points); ?></span>
+            </div>
+            <div class="wcls-stat-row">
+                <span class="wcls-stat-label"><?php _e('Current Tier', 'wc-loyalty-system'); ?></span>
+                <span class="wcls-tier-pill"
+                    style="background:<?php echo esc_attr($tier['color']); ?>;color:<?php echo wcls_get_contrast_color($tier['color']); ?>">
+                    <?php echo esc_html($tier['name']); ?>
+                </span>
+            </div>
+            <?php if ($tier['discount'] > 0): ?>
+            <div class="wcls-stat-row">
+                <span class="wcls-stat-label"><?php _e('Tier Discount', 'wc-loyalty-system'); ?></span>
+                <span class="wcls-stat-value wcls-discount-val"><?php echo esc_html($tier['discount']); ?>%
+                    <?php _e('off', 'wc-loyalty-system'); ?></span>
+            </div>
+            <?php endif; ?>
         </div>
-        <?php if ($tier['discount'] > 0): ?>
-        <div class="wcls-discount">
-            <strong><?php _e('Discount:', 'wc-loyalty-system'); ?></strong>
-            <span><?php echo $tier['discount']; ?>%</span>
-        </div>
-        <?php endif; ?>
-        <a href="<?php echo wc_get_account_endpoint_url('loyalty-points'); ?>" class="button">
-            <?php _e('View Details', 'wc-loyalty-system'); ?>
+        <a href="<?php echo esc_url(wc_get_account_endpoint_url('loyalty-points')); ?>" class="wcls-widget-cta">
+            <?php _e('View Full Details', 'wc-loyalty-system'); ?>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true">
+                <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                    stroke-linejoin="round" />
+            </svg>
         </a>
     </div>
 </div>
@@ -50,57 +74,150 @@ class Frontend_Display {
 .wcls-floating-widget {
     position: fixed;
     bottom: 20px;
-    right: 20px;
+    left: 20px;
     z-index: 9999;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .wcls-widget-toggle {
-    width: 50px;
-    height: 50px;
-    background: #4CAF50;
+    width: 48px;
+    height: 48px;
+    background: #222;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transition: background 0.2s ease;
 }
 
-.wcls-widget-toggle .dashicons {
-    color: white;
-    font-size: 24px;
+.wcls-widget-toggle:hover {
+    background: #444;
 }
 
 .wcls-widget-content {
     position: absolute;
     bottom: 60px;
-    right: 0;
-    width: 250px;
-    background: white;
-    border-radius: 8px;
-    padding: 15px;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    left: 0;
+    width: 240px;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
     display: none;
+    overflow: hidden;
 }
 
-.wcls-floating-widget:hover .wcls-widget-content {
-    display: block;
+.wcls-widget-content.wcls-widget-open {
+    animation: wcls-popIn 0.15s ease forwards;
 }
 
-.wcls-widget-content h4 {
-    margin: 0 0 10px 0;
-    padding-bottom: 5px;
-    border-bottom: 1px solid #eee;
+@keyframes wcls-popIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-.wcls-widget-content div {
-    margin-bottom: 8px;
+.wcls-widget-header {
+    background: #f7f7f7;
+    border-bottom: 1px solid #ebebeb;
+    padding: 11px 14px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
 }
 
-.wcls-widget-content .button {
-    width: 100%;
-    text-align: center;
-    margin-top: 10px;
+.wcls-widget-close {
+    margin-left: auto;
+    background: none;
+    border: none !important;
+    color: #999;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0;
+    flex-shrink: 0;
+    transition: color 0.15s;
+}
+
+.wcls-widget-close:hover {
+    color: #333;
+}
+
+.wcls-widget-body {
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.wcls-stat-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.wcls-stat-label {
+    font-size: 12px;
+    color: #999;
+}
+
+.wcls-stat-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #222;
+}
+
+.wcls-points-val {
+    font-size: 15px;
+}
+
+.wcls-discount-val {
+    color: #555;
+}
+
+.wcls-tier-pill {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.wcls-widget-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin: 4px 14px 12px;
+    padding: 9px 12px;
+    background: #222;
+    color: #fff !important;
+    text-decoration: none !important;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.wcls-widget-cta:hover {
+    background: #444;
+    color: #fff !important;
 }
 </style>
 <?php
@@ -264,36 +381,34 @@ class Frontend_Display {
     <div class="wcls-checkout-section wcls-points-section">
         <h3 class="wcls-section-title"><?php _e('Loyalty Points', 'wc-loyalty-system'); ?></h3>
         <?php if ($applied_points > 0): ?>
-            <p class="wcls-applied-notice">
-                <?php echo sprintf(
+        <p class="wcls-applied-notice">
+            <?php echo sprintf(
                     __('<strong>%d points</strong> applied — discount: <strong>%s</strong>', 'wc-loyalty-system'),
                     $applied_points,
                     wc_price(Loyalty_Points::get_points_value($applied_points))
                 ); ?>
-                <button type="button" id="wcls-remove-points" class="wcls-remove-btn"><?php _e('Remove', 'wc-loyalty-system'); ?></button>
-            </p>
+            <button type="button" id="wcls-remove-points"
+                class="wcls-remove-btn"><?php _e('Remove', 'wc-loyalty-system'); ?></button>
+        </p>
         <?php else: ?>
-            <p class="wcls-available-info">
-                <?php echo sprintf(
+        <p class="wcls-available-info">
+            <?php echo sprintf(
                     __('You have <strong>%d points</strong> available (worth %s)', 'wc-loyalty-system'),
                     $points,
                     wc_price(Loyalty_Points::get_points_value($points))
                 ); ?>
-            </p>
-            <div class="wcls-input-row">
-                <input type="number"
-                       id="wcls_points_to_use"
-                       min="<?php echo esc_attr($min_points); ?>"
-                       max="<?php echo esc_attr($points); ?>"
-                       step="1"
-                       placeholder="<?php echo esc_attr($min_points); ?>" />
-                <button type="button" id="wcls-apply-points" class="button alt"><?php _e('Apply', 'wc-loyalty-system'); ?></button>
-            </div>
-            <p class="wcls-preview-text">
-                <?php _e('Discount preview:', 'wc-loyalty-system'); ?>
-                <span id="wcls-points-preview">—</span>
-            </p>
-            <div id="wcls-points-message" class="wcls-inline-message" style="display:none;"></div>
+        </p>
+        <div class="wcls-input-row">
+            <input type="number" id="wcls_points_to_use" min="<?php echo esc_attr($min_points); ?>"
+                max="<?php echo esc_attr($points); ?>" step="1" placeholder="<?php echo esc_attr($min_points); ?>" />
+            <button type="button" id="wcls-apply-points"
+                class="button alt"><?php _e('Apply', 'wc-loyalty-system'); ?></button>
+        </div>
+        <p class="wcls-preview-text">
+            <?php _e('Discount preview:', 'wc-loyalty-system'); ?>
+            <span id="wcls-points-preview">—</span>
+        </p>
+        <div id="wcls-points-message" class="wcls-inline-message" style="display:none;"></div>
         <?php endif; ?>
     </div>
     <?php endif; ?>
@@ -301,22 +416,23 @@ class Frontend_Display {
     <div class="wcls-checkout-section wcls-gift-card-section">
         <h3 class="wcls-section-title"><?php _e('Gift Card', 'wc-loyalty-system'); ?></h3>
         <?php if ($applied_gc): ?>
-            <p class="wcls-applied-notice">
-                <?php echo sprintf(
+        <p class="wcls-applied-notice">
+            <?php echo sprintf(
                     __('Gift card <strong>***%s</strong> applied — discount: <strong>%s</strong>', 'wc-loyalty-system'),
                     esc_html(substr($applied_gc['number'], -4)),
                     wc_price($applied_gc['discount'])
                 ); ?>
-                <button type="button" id="wcls-remove-gift-card" class="wcls-remove-btn"><?php _e('Remove', 'wc-loyalty-system'); ?></button>
-            </p>
+            <button type="button" id="wcls-remove-gift-card"
+                class="wcls-remove-btn"><?php _e('Remove', 'wc-loyalty-system'); ?></button>
+        </p>
         <?php else: ?>
-            <div class="wcls-input-row">
-                <input type="text"
-                       id="wcls_gift_card_number"
-                       placeholder="<?php _e('Enter gift card number', 'wc-loyalty-system'); ?>" />
-                <button type="button" id="wcls-apply-gift-card" class="button alt"><?php _e('Apply', 'wc-loyalty-system'); ?></button>
-            </div>
-            <div id="wcls-gift-card-message" class="wcls-inline-message" style="display:none;"></div>
+        <div class="wcls-input-row">
+            <input type="text" id="wcls_gift_card_number"
+                placeholder="<?php _e('Enter gift card number', 'wc-loyalty-system'); ?>" />
+            <button type="button" id="wcls-apply-gift-card"
+                class="button alt"><?php _e('Apply', 'wc-loyalty-system'); ?></button>
+        </div>
+        <div id="wcls-gift-card-message" class="wcls-inline-message" style="display:none;"></div>
         <?php endif; ?>
     </div>
 

@@ -135,50 +135,88 @@ $platinum_discount = get_option('wcls_platinum_card_discount', 20);
     </div>
 
     <div class="wcls-special-cards-section">
-        <h2><?php _e('Special Cards (Investor & Platinum)', 'wc-loyalty-system'); ?></h2>
-        <p class="description">
-            <?php _e('These cards are issued manually by administrators only.', 'wc-loyalty-system'); ?></p>
+        <div class="wcls-section-header">
+            <div>
+                <h2><?php _e('Special Cards (Investor & Platinum)', 'wc-loyalty-system'); ?></h2>
+                <p class="description">
+                    <?php _e('Issue cards manually to users. Search by ID, name or email.', 'wc-loyalty-system'); ?></p>
+            </div>
+            <input type="text" id="wcls-user-search"
+                placeholder="<?php esc_attr_e('Search users…', 'wc-loyalty-system'); ?>" />
+        </div>
 
-        <form method="post" action="" class="wcls-issue-special-card">
-            <?php wp_nonce_field('wcls_issue_special_card'); ?>
+        <?php
+        $all_users = get_users(array(
+            'fields'  => array('ID', 'display_name', 'user_email'),
+            'orderby' => 'display_name',
+            'order'   => 'ASC',
+            'number'  => 200,
+        ));
 
-            <table class="form-table">
+        // Pre-load all active special cards in one query to avoid N+1 lookups
+        $existing_special = $wpdb->get_results(
+            "SELECT user_id, card_type FROM {$wpdb->prefix}loyalty_cards
+             WHERE card_type IN ('investor','platinum') AND status = 'active'",
+            ARRAY_A
+        );
+        $user_has = array(); // $user_has[user_id][card_type] = true
+        foreach ($existing_special as $row) {
+            $user_has[$row['user_id']][$row['card_type']] = true;
+        }
+        ?>
+
+        <table class="wp-list-table widefat fixed striped wcls-users-issue-table" id="wcls-users-table">
+            <thead>
                 <tr>
-                    <th scope="row">
-                        <label for="card_user"><?php _e('Select User', 'wc-loyalty-system'); ?></label>
-                    </th>
+                    <th style="width:60px"><?php _e('ID', 'wc-loyalty-system'); ?></th>
+                    <th><?php _e('Name', 'wc-loyalty-system'); ?></th>
+                    <th><?php _e('Email', 'wc-loyalty-system'); ?></th>
+                    <th style="width:280px"><?php _e('Assign Card', 'wc-loyalty-system'); ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($all_users as $u):
+                    $has_investor = !empty($user_has[$u->ID]['investor']);
+                    $has_platinum = !empty($user_has[$u->ID]['platinum']);
+                    $has_both     = $has_investor && $has_platinum;
+                ?>
+                <tr data-search="<?php echo esc_attr(strtolower($u->ID . ' ' . $u->display_name . ' ' . $u->user_email)); ?>">
+                    <td><code>#<?php echo $u->ID; ?></code></td>
+                    <td><?php echo esc_html($u->display_name); ?></td>
+                    <td><?php echo esc_html($u->user_email); ?></td>
                     <td>
-                        <select name="user_id" id="card_user" required>
-                            <option value=""><?php _e('Select a user', 'wc-loyalty-system'); ?></option>
-                            <?php
-                            $users = get_users(array('fields' => array('ID', 'display_name', 'user_email')));
-                            foreach ($users as $user) {
-                                echo '<option value="' . $user->ID . '">' . $user->display_name . ' (' . $user->user_email . ')</option>';
-                            }
-                            ?>
-                        </select>
+                        <?php if ($has_both): ?>
+                            <span class="wcls-all-issued"><?php _e('All cards issued', 'wc-loyalty-system'); ?></span>
+                        <?php else: ?>
+                        <form method="post" class="wcls-inline-issue-form">
+                            <?php wp_nonce_field('wcls_issue_special_card'); ?>
+                            <input type="hidden" name="user_id" value="<?php echo $u->ID; ?>" />
+                            <select name="card_type" class="wcls-card-type-select">
+                                <option value="investor" <?php disabled($has_investor, true); ?>>
+                                    <?php echo $has_investor
+                                        ? esc_html__('Investor (issued)', 'wc-loyalty-system')
+                                        : esc_html__('Investor', 'wc-loyalty-system'); ?>
+                                </option>
+                                <option value="platinum" <?php disabled($has_platinum, true); ?>>
+                                    <?php echo $has_platinum
+                                        ? esc_html__('Platinum (issued)', 'wc-loyalty-system')
+                                        : esc_html__('Platinum', 'wc-loyalty-system'); ?>
+                                </option>
+                            </select>
+                            <button type="submit" name="issue_special_card" class="button button-primary button-small">
+                                <?php _e('Issue', 'wc-loyalty-system'); ?>
+                            </button>
+                        </form>
+                        <?php endif; ?>
                     </td>
                 </tr>
-                <tr>
-                    <th scope="row">
-                        <label for="card_type"><?php _e('Card Type', 'wc-loyalty-system'); ?></label>
-                    </th>
-                    <td>
-                        <select name="card_type" id="card_type" required>
-                            <option value="investor"><?php _e('Investor Card (20% discount)', 'wc-loyalty-system'); ?>
-                            </option>
-                            <option value="platinum"><?php _e('Platinum Card (20% discount)', 'wc-loyalty-system'); ?>
-                            </option>
-                        </select>
-                    </td>
-                </tr>
-            </table>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
 
-            <p class="submit">
-                <input type="submit" name="issue_special_card" class="button-primary"
-                    value="<?php _e('Issue Special Card', 'wc-loyalty-system'); ?>" />
-            </p>
-        </form>
+        <p id="wcls-no-results" style="display:none;padding:12px 0;color:#666;">
+            <?php _e('No users match your search.', 'wc-loyalty-system'); ?>
+        </p>
     </div>
 
     <?php
@@ -190,9 +228,12 @@ $platinum_discount = get_option('wcls_platinum_card_discount', 20);
         $result = Privilege_Cards::issue_special_card($user_id, $card_type, get_current_user_id());
         
         if ($result && !is_wp_error($result)) {
-            echo '<div class="notice notice-success"><p>' . sprintf(__('Special card issued successfully! Card number: %s', 'wc-loyalty-system'), $result) . '</p></div>';
+            echo '<div class="notice notice-success"><p>' . sprintf(__('Special card issued successfully! Card number: %s', 'wc-loyalty-system'), esc_html($result)) . '</p></div>';
         } else {
-            echo '<div class="notice notice-error"><p>' . __('Failed to issue special card.', 'wc-loyalty-system') . '</p></div>';
+            $error_msg = is_wp_error($result)
+                ? $result->get_error_message()
+                : __('Failed to issue special card.', 'wc-loyalty-system');
+            echo '<div class="notice notice-error"><p>' . esc_html($error_msg) . '</p></div>';
         }
     }
     ?>
@@ -201,6 +242,7 @@ $platinum_discount = get_option('wcls_platinum_card_discount', 20);
 <style>
 .wcls-admin-wrap {
     margin: 20px 0;
+    margin-right: 20px;
 }
 
 .wcls-settings-summary {
@@ -238,18 +280,18 @@ $platinum_discount = get_option('wcls_platinum_card_discount', 20);
 }
 
 .wcls-card-privilege {
-    background: #e3f2fd;
-    color: #0d47a1;
+    background: #f5e9c8;
+    color: #7a5500;
 }
 
 .wcls-card-investor {
-    background: #e8f5e9;
-    color: #1b5e20;
+    background: #c8e6d4;
+    color: #1a3c2e;
 }
 
 .wcls-card-platinum {
-    background: #f3e5f5;
-    color: #4a148c;
+    background: #e0e0e0;
+    color: #333;
 }
 
 .wcls-expired-warning {
@@ -262,6 +304,7 @@ $platinum_discount = get_option('wcls_platinum_card_discount', 20);
     border: 1px solid #ccd0d4;
     border-radius: 8px;
     padding: 20px;
+    margin-bottom: 30px;
 }
 
 .wcls-cards-list h2 {
@@ -270,4 +313,102 @@ $platinum_discount = get_option('wcls_platinum_card_discount', 20);
     padding-bottom: 10px;
     border-bottom: 1px solid #eee;
 }
+
+/* Special Cards — section header with search */
+.wcls-special-cards-section {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.wcls-section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+
+.wcls-section-header h2 {
+    margin: 0 0 4px;
+}
+
+.wcls-section-header .description {
+    margin: 0;
+    color: #666;
+    font-size: 13px;
+}
+
+#wcls-user-search {
+    padding: 6px 10px;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    font-size: 13px;
+    width: 240px;
+    margin-top: 6px;
+}
+
+#wcls-user-search:focus {
+    border-color: #2271b1;
+    outline: none;
+    box-shadow: 0 0 0 1px #2271b1;
+}
+
+/* Users issue table */
+.wcls-users-issue-table {
+    margin-top: 0 !important;
+}
+
+.wcls-users-issue-table code {
+    font-size: 12px;
+    background: #f0f0f1;
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: #50575e;
+}
+
+.wcls-inline-issue-form {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.wcls-card-type-select {
+    width: 140px;
+    border: 1px solid #c3c4c7;
+    font-size: 12px !important;
+    padding: 3px 6px !important;
+    height: 28px !important;
+}
+
+.wcls-all-issued {
+    display: inline-block;
+    font-size: 12px;
+    color: #666;
+    background: #f0f0f1;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 3px 10px;
+}
 </style>
+
+<script>
+(function() {
+    var input = document.getElementById('wcls-user-search');
+    if (!input) return;
+    input.addEventListener('input', function() {
+        var term = this.value.toLowerCase().trim();
+        var rows = document.querySelectorAll('#wcls-users-table tbody tr');
+        var visible = 0;
+        rows.forEach(function(row) {
+            var match = !term || row.dataset.search.indexOf(term) !== -1;
+            row.style.display = match ? '' : 'none';
+            if (match) visible++;
+        });
+        var noResults = document.getElementById('wcls-no-results');
+        if (noResults) noResults.style.display = visible === 0 ? '' : 'none';
+    });
+})();
+</script>

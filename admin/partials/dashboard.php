@@ -114,6 +114,7 @@ $recent_transactions = $wpdb->get_results(
 <style>
 .wcls-admin-wrap {
     margin: 20px 0;
+    margin-right: 20px;
 }
 
 .wcls-stats-grid {

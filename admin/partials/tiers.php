@@ -184,6 +184,7 @@ function wcls_get_contrast_color($hex) {
 .wcls-admin-wrap {
     max-width: 1200px;
     margin: 20px 0;
+    margin-right: 20px;
 }
 
 .wcls-info-box {

@@ -12,11 +12,7 @@ $card_labels = array(
     'platinum'  => __('Platinum Card', 'wc-loyalty-system'),
 );
 
-$card_colors = array(
-    'privilege' => '#4CAF50',
-    'investor'  => '#2196F3',
-    'platinum'  => '#9C27B0',
-);
+// Colors are handled via CSS classes per type
 ?>
 
 <div class="wcls-cards-page">
@@ -36,12 +32,11 @@ $card_colors = array(
     <?php else: ?>
         <div class="wcls-cards-grid">
             <?php foreach ($cards as $card):
-                $type   = esc_html($card->card_type);
+                $type   = esc_attr($card->card_type);
                 $label  = isset($card_labels[$type]) ? $card_labels[$type] : ucfirst($type);
-                $color  = isset($card_colors[$type]) ? $card_colors[$type] : '#333';
                 $active = ($card->status === 'active' && (!$card->valid_until || strtotime($card->valid_until) > time()));
             ?>
-            <div class="wcls-loyalty-card" style="--card-color: <?php echo esc_attr($color); ?>">
+            <div class="wcls-loyalty-card wcls-loyalty-card-<?php echo $type; ?>">
                 <div class="wcls-loyalty-card-header">
                     <span class="wcls-card-type-label"><?php echo esc_html($label); ?></span>
                     <span class="wcls-card-status <?php echo $active ? 'active' : 'expired'; ?>">
@@ -116,13 +111,24 @@ $card_colors = array(
 }
 
 .wcls-loyalty-card {
-    background: linear-gradient(135deg, var(--card-color, #4CAF50) 0%, color-mix(in srgb, var(--card-color, #4CAF50) 70%, #000) 100%);
     color: #fff;
     border-radius: 12px;
     padding: 20px;
     position: relative;
     overflow: hidden;
     box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+}
+
+.wcls-loyalty-card-privilege {
+    background: linear-gradient(135deg, #b8860b 0%, #daa520 60%, #8b6914 100%);
+}
+
+.wcls-loyalty-card-investor {
+    background: linear-gradient(135deg, #1a3c2e 0%, #2e7d52 60%, #145a38 100%);
+}
+
+.wcls-loyalty-card-platinum {
+    background: linear-gradient(135deg, #555 0%, #888 60%, #444 100%);
 }
 
 .wcls-loyalty-card::after {

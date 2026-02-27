@@ -58,7 +58,12 @@ class Privilege_Cards {
         if ($card_type !== 'privilege') {
             return new WP_Error('invalid_purchase', __('This card type cannot be purchased.', 'wc-loyalty-system'));
         }
-        
+
+        // Prevent duplicate active privilege cards
+        if (self::has_card_type($user_id, 'privilege')) {
+            return new WP_Error('duplicate_card', __('You already have an active Privilege Card.', 'wc-loyalty-system'));
+        }
+
         $card_price = get_option('wcls_privilege_card_price', 500);
         $discount_rate = self::get_discount_rate($card_type);
         
@@ -105,7 +110,15 @@ class Privilege_Cards {
         if (!in_array($card_type, array('investor', 'platinum'))) {
             return new WP_Error('invalid_card', __('Invalid special card type.', 'wc-loyalty-system'));
         }
-        
+
+        // Prevent duplicate active special cards of the same type
+        if (self::has_card_type($user_id, $card_type)) {
+            return new WP_Error('duplicate_card', sprintf(
+                __('This user already has an active %s.', 'wc-loyalty-system'),
+                self::CARD_TYPES[$card_type]
+            ));
+        }
+
         $discount_rate = self::get_discount_rate($card_type);
         
         $card_data = array(
@@ -137,6 +150,11 @@ class Privilege_Cards {
      * Award free privilege card (when purchase threshold met)
      */
     public static function award_free_card($user_id, $order_id = null) {
+        // Don't award if user already has an active privilege card
+        if (self::has_card_type($user_id, 'privilege')) {
+            return false;
+        }
+
         $discount_rate = self::get_discount_rate('privilege');
         
         $card_data = array(

@@ -223,6 +223,22 @@ GPL v2 or later — see [https://www.gnu.org/licenses/gpl-2.0.html](https://www.
 
 ## Changelog
 
+### 1.2.0 — 2026-02-27
+
+#### Fixed
+- **Duplicate card issuance bug.** A single user could receive the same card type multiple times — e.g. Platinum issued twice by admin, or Privilege Card awarded again automatically even if one already existed. Added `has_card_type()` guards at the top of `purchase_card()`, `issue_special_card()`, and `award_free_card()`. `issue_special_card()` now returns a descriptive `WP_Error` which is shown in the admin UI instead of a generic failure message.
+- **Floating widget not toggling.** A CSS hover rule (`.wcls-floating-widget:hover .wcls-widget-content { display: block }`) was conflicting with the JS click toggle, causing the panel to reappear immediately after closing. Removed the hover rule; toggle is now purely JS-controlled.
+- **Floating widget positioned on wrong side.** Widget was anchored to the right side of the screen. Corrected to `left: 20px`.
+- **Tier pill displaying as plain text in floating widget.** A stray `wcls-tier-pill` text node had been inserted inside the `@keyframes wcls-popIn` block, invalidating the entire `<style>` block and stripping all widget styles. Removed the stray text.
+
+#### Changed
+- **Floating widget redesigned.** Replaced the admin-only Dashicons star (which never loaded on the frontend) with an inline SVG icon. Rebuilt widget to a minimal design: dark `#222` toggle button, neutral gray header with close (×) button, stat rows for Points / Tier / Discount, and a plain dark CTA button. Removed all gradients and excessive color.
+- **Admin Special Cards section rebuilt.** Replaced the Select2 AJAX user dropdown (which failed to load reliably) with a fully server-rendered user table (ID | Name | Email | Assign Card). A client-side search bar at the top-right filters rows instantly by ID, name, or email with no JavaScript dependencies. Already-issued card types are shown as disabled options; users with both cards assigned show an "All cards issued" badge instead of a form.
+- **Active Cards section redesigned (Loyalty Points page).** Replaced the plain `<ul>` list with visual card components matching the style of the My Cards page — type-specific gradient backgrounds, SVG icons, large discount percentage display, and a validity footer. Responsive: full width on screens ≤ 480 px.
+- **Card colors unified across all templates.** All three templates (My Cards public page, Active Cards section in Loyalty Points page, and admin Loyalty Cards badge pills) now use the same consistent palette: Privilege → gold, Investor → dark green, Platinum → gray.
+
+---
+
 ### 1.1.1 — 2026-02-26
 
 #### Fixed

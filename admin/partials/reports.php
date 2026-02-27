@@ -209,6 +209,7 @@ $daily_activity = $wpdb->get_results($wpdb->prepare(
 <style>
 .wcls-admin-wrap {
     margin: 20px 0;
+    margin-right: 20px;
 }
 
 .wcls-date-filter {

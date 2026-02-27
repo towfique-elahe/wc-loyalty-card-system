@@ -149,6 +149,7 @@ $gift_card_types = get_option('wcls_gift_card_types', array(
 <style>
 .wcls-admin-wrap {
     margin: 20px 0;
+    margin-right: 20px;
 }
 
 .wcls-two-column {

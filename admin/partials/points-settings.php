@@ -114,6 +114,7 @@ $expiry_days = get_option('wcls_points_expiry_days', 365);
 .wcls-admin-wrap {
     max-width: 800px;
     margin: 20px 0;
+    margin-right: 20px;
 }
 
 .wcls-settings-section {

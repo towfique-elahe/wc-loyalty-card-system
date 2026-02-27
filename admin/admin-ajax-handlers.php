@@ -198,6 +198,45 @@ function wcls_get_user_points() {
     ));
 }
 
+// Admin: Search users for Select2 (Special Card issuance)
+add_action('wp_ajax_wcls_search_users', 'wcls_search_users');
+
+function wcls_search_users() {
+    check_ajax_referer('wcls_admin_nonce', 'nonce');
+
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(array('message' => __('Unauthorized', 'wc-loyalty-system')));
+    }
+
+    $search = sanitize_text_field(isset($_GET['search']) ? $_GET['search'] : '');
+
+    $args = array(
+        'number' => 20,
+        'fields' => array('ID', 'display_name', 'user_email'),
+    );
+
+    if (!empty($search)) {
+        if (is_numeric($search)) {
+            $args['include'] = array(intval($search));
+        } else {
+            $args['search']         = '*' . $search . '*';
+            $args['search_columns'] = array('display_name', 'user_email', 'user_login');
+        }
+    }
+
+    $users   = get_users($args);
+    $results = array();
+
+    foreach ($users as $user) {
+        $results[] = array(
+            'id'   => $user->ID,
+            'text' => $user->display_name . ' (#' . $user->ID . ') — ' . $user->user_email,
+        );
+    }
+
+    wp_send_json(array('results' => $results));
+}
+
 // Admin: Adjust user points
 add_action('wp_ajax_wcls_adjust_points', 'wcls_adjust_points');
 
